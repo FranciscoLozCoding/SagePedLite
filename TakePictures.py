@@ -26,7 +26,6 @@ while True:
     img_name="frame_{}.png".format(img_date)
     img_path=os.path.join(Path,img_name)
     cv2.imwrite(img_path, frame)
-    print("{} written!".format(img_name))
 
     #get key pressed
     k = cv2.waitKey(1)
