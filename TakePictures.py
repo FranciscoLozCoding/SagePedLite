@@ -8,9 +8,7 @@ password = 'admin'
 streamURL = 'rtsp://' + username + ':' + password + '@' + camIP + ':554/cam/realmonitor?channel=1&subtype=1'
 
 cam = cv2.VideoCapture(streamURL)
-
-img_date = datetime.datetime.now()
-path = '/Images'
+Path = os.path.join(os.getcwd(),"Images")
 
 while True:
     ret, frame = cam.read()
@@ -19,8 +17,9 @@ while True:
         break
     cv2.imshow("Image", frame)
 
+    img_date = datetime.datetime.now()
     img_name="frame_{}.png".format(img_date)
-    img_path=os.path.join(path,img_name)
+    img_path=os.path.join(Path,img_name)
     cv2.imwrite(img_path, frame)
     print("{} written!".format(img_name))
 
