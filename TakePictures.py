@@ -3,7 +3,7 @@ import cv2 #video streaming
 import datetime
 
 #Camera Variables
-camIP = '10.42.0.103'
+camIP = '10.42.0.104'
 username = 'admin'
 password = 'admin'
 streamURL = 'rtsp://' + username + ':' + password + '@' + camIP + ':554/cam/realmonitor?channel=1&subtype=1'
