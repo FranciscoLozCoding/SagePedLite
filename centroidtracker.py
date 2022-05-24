@@ -60,7 +60,7 @@ class CentroidTracker():
     #############################################################################
     def update(self,centerCords):
         # check to see if the list of input center cords is empty
-        if len(centerCords == 0):
+        if len(centerCords) == 0:
             # loop over any existing tracked objects and mark them as disappeared
             for objectID in list(self.disappeared.keys()):
                 self.disappeared[objectID] += 1
