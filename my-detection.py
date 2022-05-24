@@ -1,4 +1,5 @@
 import cv2
+from centroidtracker import CentroidTracker
 import jetson.utils
 
 #Camera Variables
