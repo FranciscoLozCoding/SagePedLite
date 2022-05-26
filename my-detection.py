@@ -1,15 +1,14 @@
-#import cv2
 import jetson.utils
 
 #Camera Variables
-camIP = '10.42.0.103'
+camIP = '10.42.0.78'
 username = 'admin'
 password = 'admin'
 streamURL = 'rtsp://' + username + ':' + password + '@' + camIP + ':554/cam/realmonitor?channel=1&subtype=1'
 
 #set up camera and display
 camera = jetson.utils.videoSource(streamURL)
-display = jetson.utils.videoOutput()
+display = jetson.utils.videoOutput("file://my_video.mp4")
 
 #Has to be after videoOutput for the X11 window to create
 import jetson.inference 
@@ -25,11 +24,7 @@ font = jetson.utils.cudaFont( size=32 )
 from centroidtracker import CentroidTracker
 ct = CentroidTracker()
 
-#trajectory variables
-# import numpy as np
-# trajectory = np.empty([2,2])
-
-while display.IsStreaming():
+while True:
 
     img = camera.Capture() #capture image
 
@@ -40,8 +35,7 @@ while display.IsStreaming():
     for x in detections:
         if(net.GetClassDesc(x.ClassID) == "person"):
             centerCords.append(x.Center)
-    #         trajectory = np.append(trajectory,[x.Center],axis=0)
-    #         img = cv2.polylines(img,trajectory,False,(0,0,255))
+
     objects = ct.update(centerCords) #update centroid tracker with objects center cordinates
 
     # loop over the tracked objects
@@ -53,3 +47,6 @@ while display.IsStreaming():
 
     display.Render(img) #show image
     display.SetStatus("Object Detection | Network {:.0f} FPS".format(net.GetNetworkFPS())) #update window title
+
+    if not camera.IsStreaming() or not display.IsStreaming():
+        break
