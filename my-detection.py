@@ -1,4 +1,6 @@
 import jetson.utils
+from TrackPerson import Person
+import numpy as np
 
 #Camera Variables
 camIP = '10.42.0.78'
@@ -23,6 +25,8 @@ font = jetson.utils.cudaFont( size=32 )
 # initialize centroid tracker
 from centroidtracker import CentroidTracker
 ct = CentroidTracker()
+trackableObjects = {}
+people = []
 
 while True:
 
@@ -40,6 +44,28 @@ while True:
 
     # loop over the tracked objects
     for (objectID,centroid) in objects.items():
+
+        # check to see if a person exists for the currect object ID
+        to = trackableObjects.get(objectID, None)
+
+        # if there is no existing person, create one
+        if to is None:
+            to = Person(objectID, centroid)
+            people.append(to)
+        #log the direction and tracjectory of the person walking
+        elif to.lastPoint:
+            # check if the direction of the object has been set, if
+            # not, calculate it, and set it
+            if to.direction is None:
+                y = [c[0] for c in to.centroids]
+                direction = centroid[0] - np.mean(y)
+                to.direction = direction
+        # otherwise collect new cord
+        else:
+            for x in people:
+                if x.objectID == objectID:
+                    x.addCord(centroid)
+
         #draw both the ID of the object and the centroid of the object on the output frame
         text = "ID {}".format(objectID)
         font.OverlayText(img,img.width,img.height,text,centroid[0] - 10,centroid[1] + 10,font.White)

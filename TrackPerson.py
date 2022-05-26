@@ -19,3 +19,6 @@ class Person:
 
         #Initialize the direction of the object
         self.direction = None
+    
+    def addCord(self, centroid):
+        self.centroids.append(centroid)
