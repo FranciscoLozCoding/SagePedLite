@@ -10,7 +10,7 @@ class CentroidTracker():
     # @var maxDisappeared the maximum number of consecutive frames an object
     #        has to be lost until it is removed from the tracker
     #############################################################################
-    def __init__(self,maxDisappeared=50):
+    def __init__(self,maxDisappeared=20):
         # initialize the next unique object ID along with two ordered
         # dictionaries used to keep track of mapping a given object
         # ID to its centroid and number of consecutive frames it has
