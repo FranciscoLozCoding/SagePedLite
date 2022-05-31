@@ -4,16 +4,21 @@ import numpy as np
 import time
 
 #Camera Variables
-camIP = '10.42.0.78'
+camIP = '10.42.0.104'
 username = 'admin'
 password = 'admin'
 streamURL = 'rtsp://' + username + ':' + password + '@' + camIP + ':554/cam/realmonitor?channel=1&subtype=1'
 
 #set up camera and display
-# camera = jetson.utils.videoSource(streamURL) # Armcrest camera
-camera = jetson.utils.videoSource("file:///home/flozano/Workspace/SagePedLite/example.mp4") # example video
-display = jetson.utils.videoOutput("file://my_video.mp4")
+camera = jetson.utils.videoSource(streamURL) # Armcrest camera
+# camera = jetson.utils.videoSource("file:///home/flozano/Workspace/SagePedLite/example.mp4") # example video
 
+# Video Ouput:
+#   * No arguments will display an OpenGL display Window
+#   * "file://my_video.mp4" for video file output
+#   * "rtp://<remote-ip>:1234" for streaming to another device
+#   * by default, an OpenGL display window will be created unless --headless is specified
+display = jetson.utils.videoOutput("rtp://130.202.141.50:1234",argv=["--headless"]) 
 
 # The model does better at detecting objects when it has a leveled view of the objects
 # For example if the camera is looking down at the objects the model doesn't do well
