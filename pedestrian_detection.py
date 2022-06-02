@@ -12,4 +12,12 @@ from numpy.core.fromnumeric import var
 
 sys.path.insert(1,'./deep-person-reid/')
 import torch
-import torchreid.utils
+import torchreid
+from torchreid.utils import FeatureExtractor
+from collections import defaultdict,deque
+from recordtype import recordtype
+from shapely.geometry import Point
+# from shapely.geometry.polygon import Polygon
+# import sympy
+# import pickle
+# import time
