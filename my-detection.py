@@ -1,3 +1,4 @@
+from cupshelpers import Device
 from cv2 import sqrt
 import jetson.utils
 from TrackPerson import Person
@@ -15,12 +16,17 @@ streamURL = 'rtsp://' + username + ':' + password + '@' + camIP + ':554/cam/real
 camera = jetson.utils.videoSource(streamURL) # Armcrest camera
 # camera = jetson.utils.videoSource("file:///home/flozano/Workspace/SagePedLite/example.mp4") # example video
 
+#rtp stream variables
+deviceIP = "130.202.141.55"
+port = "1234"
+rtpStream = "rtp://" + deviceIP + ":" + port
+
 # Video Ouput:
 #   * No arguments will display an OpenGL display Window
 #   * "file://my_video.mp4" for video file output
 #   * "rtp://<remote-ip>:1234" for streaming to another device
 #   * by default, an OpenGL display window will be created unless --headless is specified
-display = jetson.utils.videoOutput("rtp://130.202.141.50:1234",argv=["--headless"]) 
+display = jetson.utils.videoOutput(rtpStream,argv=["--headless"])
 
 # The model does better at detecting objects when it has a leveled view of the objects
 # For example if the camera is looking down at the objects the model doesn't do well
@@ -51,6 +57,10 @@ while True:
     for x in detections:
         if(net.GetClassDesc(x.ClassID) == "person"):
             centerCords.append(x.Center)
+            print("Top: " + str(x.Top))
+            print("Bottom: " + str(x.Bottom))
+            print("Left: " + str(x.Left))
+            print("Right: " + str(x.Right))
 
     objects = ct.update(centerCords) #update centroid tracker with objects center cordinates
 

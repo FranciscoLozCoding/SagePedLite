@@ -1,6 +1,6 @@
 import os
 import cv2 #video streaming
-import datetime
+from datetime import datetime
 
 #Camera Variables
 camIP = '10.42.0.104'
@@ -10,7 +10,7 @@ streamURL = 'rtsp://' + username + ':' + password + '@' + camIP + ':554/cam/real
 cam = cv2.VideoCapture(streamURL)
 
 #path to image folder
-Path = os.path.join(os.getcwd(),"Images")
+Image_Base_Path = os.path.join(os.getcwd(),"Images")
 
 #Capture images and show stream until esc key is pressed
 while True:
@@ -21,10 +21,25 @@ while True:
         break
     cv2.imshow("Image", frame)
 
-    #capture images with name based on datetime
-    img_date = datetime.datetime.now()
-    img_name="frame_{}.png".format(img_date)
-    img_path=os.path.join(Path,img_name)
+    #capture images with name based on datetime and organized by date
+    img_dateTime = datetime.now()
+    month = "%02d" % (img_dateTime.month)
+    day = "%02d" % (img_dateTime.day)
+    year = "%04d" % (img_dateTime.year)
+
+    #create directory if it doesnt exist
+    if not os.path.isdir(Image_Base_Path + "/" + year): #create yyyy/mm/dd folder if yyyy folder doesnt exist
+        os.makedirs(Image_Base_Path + "/" + year + "/" + month + "/" + day)
+    elif not os.path.isdir(Image_Base_Path + "/" + year + "/" + month): #create yyyy/mm/dd folder if yyyy/mm folder doesnt exist
+        os.makedirs(Image_Base_Path + "/" + year + "/" + month + "/" + day)
+    elif not os.path.isdir(Image_Base_Path + "/" + year + "/" + month + "/" + day): #create yyyy/mm/dd folder if yyyy/mm/dd folder doesnt exist
+        os.makedirs(Image_Base_Path + "/" + year + "/" + month + "/" + day)
+
+    #path to the image taken
+    Image_Path = os.path.join(Image_Base_Path,year,month,day)
+    
+    img_name="{}.png".format(img_dateTime)
+    img_path=os.path.join(Image_Path,img_name)
     cv2.imwrite(img_path, frame)
 
     #get key pressed
