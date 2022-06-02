@@ -44,11 +44,10 @@ temp_image_dir =  os.path.join(os.getcwd(),"Images") + "/" + current_date
 xml_output_dir = os.path.join(os.getcwd(),"Image_label_xmls") + "/" + output_dir_date # directory is created if it does not exist later
 
 for filename in os.listdir(temp_image_dir): # raw image directory
-    for picture in os.listdir(temp_image_dir + filename):
-        if os.path.getsize((os.path.join(temp_image_dir + filename, picture))) <= 0:
-            print("Corrupted file found, terminating program")
-            quit()
-        IMAGE_PATHS.append(os.path.join(temp_image_dir + filename, picture))
+    if os.path.getsize((os.path.join(temp_image_dir + filename))) <= 0:
+        print("Corrupted file found, terminating program")
+        quit()
+    IMAGE_PATHS.append(os.path.join(temp_image_dir + filename))
 
 ############################################################################################
 # detect_fn() function: Detect pedestrians in image
