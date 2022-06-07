@@ -1,4 +1,3 @@
-from cupshelpers import Device
 from cv2 import sqrt
 import jetson.utils
 from TrackPerson import Person
