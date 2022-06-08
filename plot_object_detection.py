@@ -31,14 +31,14 @@ if len(sys.argv) == 2: # has an input date
     output_dir_date = sys.argv[1]
     new_dir = sys.argv[1]
     new_dir = new_dir.split("/")
-    output_dir_date = new_dir[0] + "-" + new_dir[1] + "-" + new_dir[2] + "/" #reformatting to output format "yyyy-mm-dd"
+    output_dir_date = new_dir[1] + "-" + new_dir[2] + "-" + new_dir[0] + "/" #reformatting to output format "mm-dd-yyyy"
 now = datetime.now()
 month = "%02d" % (now.month)
 day = "%02d" % (now.day)
 year = "%04d" % (now.year)
 if len(sys.argv) == 1: # default to current date
     current_date = year + "/" + month + "/" + day + "/"
-    output_dir_date =  year + "-" + month + "-" + day + "/"  #reformatting to output format "yyyy-mm-dd"
+    output_dir_date =  month + "-" + day + "-" + year + "/"  #reformatting to output format "mm-dd-yyyy"
 
 temp_image_dir =  os.path.join(os.getcwd(),"Images") + "/" + current_date
 xml_output_dir = os.path.join(os.getcwd(),"Image_label_xmls") + "/" + output_dir_date # directory is created if it does not exist later
@@ -97,7 +97,7 @@ def write_label_xmls(image_path):
 
     file_date = str(var_date_object.year) + "/" + "{:02d}".format(var_date_object.month) + "/" + "{:02d}".format(var_date_object.day)
 
-    xml_output_dir = os.path.join(os.getcwd(),"Image_label_xmls") + "/" + str(var_date_object.year) + "-" + "{:02d}".format(var_date_object.month) + "-" + "{:02d}".format(var_date_object.day) + "/"
+    xml_output_dir = os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "{:02d}".format(var_date_object.month) + "-" + "{:02d}".format(var_date_object.day) + "-" + str(var_date_object.year) + "/"
 
 
     # specify the hours of the day you wish to run
