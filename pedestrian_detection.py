@@ -36,6 +36,13 @@ dict_person_use_the_crosswalk = dict()
 dict_person_assigned_number_frames = dict()
 dict_frame_time_stamp = dict()
 max_person_count=0
+   
+# GLOBAL VARIABLES TO FIND LINES ON THE ROAD
+# Slopes found using (y2-y1)/(x2-x1) - points found by looking at road, in standard form ax^2 + bx + c = 0
+north_road_slope = 0.037109375
+north_ycoord = 830
+south_road_slope = 0.0882352941176
+south_ycoord = 1025
 
 # CONTAINS MODEL - IF WANTING TO CHANGE MODELS CHANGE THE "model_name" variable
 extractor = FeatureExtractor(model_name='osnet_x1_0', model_path='./model.pth.tar',device='cuda')
@@ -150,7 +157,7 @@ def get_total_person_count(current_frame_persons):
 # @input max_score ???
 # @input max_person_id ????
 # @input best_match_number ????
-# @input frame_queue ????
+# @input frame_queue Keeps track of previous 6 frames
 # @output current_frame_persons ????
 # @output current_frame_sim_score ????
 ###########################################################################################
@@ -211,7 +218,7 @@ def is_all_current_frame_persons_assigned(current_frame_persons):
 # @input current_frame_persons the amount of people in the current frame
 # @input current_frame_sim_score ????
 # @input total_person_count ????
-# @input frame_queue a collections of frames in queue
+# @input frame_queue Keeps track of previous 6 frames
 # @output current_frame_persons ????
 # @output current_frame_sim_score ????
 ###########################################################################################
@@ -234,3 +241,330 @@ def find_best_match_score(frame_queue, current_frame_persons, current_frame_sim_
     frame_queue, current_frame_persons = update_previous_frame(frame_queue, current_frame_persons)
 
     return current_frame_persons, frame_queue
+
+############################################################################################
+# update_previous_frame() function: ????
+# @input frame_queue Keeps track of previous 6 frames
+# @input current_frame_persons ????
+# @output frame_queue Keeps track of previous 6 frames
+# @output current_frame_persons ????
+###########################################################################################
+def update_previous_frame(frame_queue, current_frame_persons):
+
+    arr=[]
+    for frame_id, previous_frame in enumerate(frame_queue):
+        for person_id, previous_person in enumerate(previous_frame.person_records):
+            found = False
+            if previous_person.assigned_number in dict_person_assigned_number_frames:
+                if len(dict_person_assigned_number_frames[previous_person.assigned_number]) == 1:
+                    for current_person in current_frame_persons:
+                        if current_person.assigned_number == previous_person.assigned_number:
+                            found = True
+                    if found is False:
+                        arr.append([previous_person.assigned_number, frame_id, person_id])
+    if len(arr)>0:
+        for val in arr:
+            del frame_queue[val[1]].person_records[val[2]]
+        for person_id, current_person in enumerate(current_frame_persons):
+            if current_person.assigned_number > val[0]:
+                current_frame_persons[person_id].assigned_number -= len(arr)
+    return frame_queue, current_frame_persons
+
+############################################################################################
+# assign_numbers_to_person() function: Assigns a number or a sim score to a person
+# @input frame_queue Keeps track of previous 6 frames
+# @input current_frame_persons people in the current frame
+# @input total_person_count the total count of people
+# @output returns things but never actually does anything with them
+###########################################################################################
+def assign_numbers_to_person(frame_queue, current_frame_persons, total_person_count):
+
+    cos = torch.cosine_similarity(dim=1,eps=1e-6)
+
+    if not any(frame_queue):
+
+        for current_id, current_person in enumerate(current_frame_persons):
+
+            total_person_count+=1
+            current_frame_persons[current_id].assigned_number = total_person_count
+        return current_frame_persons
+    else:
+
+        current_frame_sim_score=dict()
+        for current_id, current_person in enumerate(current_frame_persons):
+            sim_score = defaultdict(list)
+            for previous_frame in frame_queue:
+                for previous_person in previous_frame.person_records:
+                    similarity_score = cos(current_person.feature,previous_person.feature).data.cpu().numpy() # or .cpu().numpy()
+                    sim_score[previous_person.assigned_number].append(similarity_score) # assigns a sim score to the prev person's assigned number
+            for assigned_number in sim_score:
+                sim_score[assigned_number] = np.mean(sim_score[assigned_number])
+            current_frame_sim_score[current_person.person_id] = sim_score
+
+        return find_best_match_score(frame_queue, current_frame_persons, current_frame_sim_score, total_person_count)
+
+############################################################################################
+# update_person_position_and_frame() function: Adds the person position and the frame they're
+#   located in to the dictionaries
+# @input current_frame_persons people in the current frame
+# @input current_frame_persons the person's position
+# @input current_frame_id the id of the frame
+# @output the person's position
+###########################################################################################
+def update_person_position_and_frame(current_frame_persons, person_pos, current_frame_id):
+
+    for current_person in current_frame_persons:
+        if current_person.assigned_number not in person_pos:
+            person_pos[current_person.assigned_number] = []
+            person_pos[current_person.assigned_number].append(current_person.center_cords)
+        else:
+            person_pos[current_person.assigned_number].append(current_person.center_cords)
+
+        if current_person.assigned_number in dict_person_assigned_number_frames:
+            dict_person_assigned_number_frames[current_person.assigned_number].append(current_person.frame_id)
+        else:
+            dict_person_assigned_number_frames[current_person.assigned_number] = []
+            dict_person_assigned_number_frames[current_person.assigned_number].append(current_person.frame_id)
+   
+    return person_pos
+
+############################################################################################
+# update_person_frame() function: ????
+# @input frame_queue Keeps track of previous 6 frames
+# @input person_pos Dictionary to hold coordinates of people
+# @input current_frame_id the id of the frame
+# @output person_pos Dictionary to hold coordinates of people
+# @output frame_queue Keeps track of previous 6 frames
+###########################################################################################
+def update_person_frame(current_frame_id, frame_queue, person_pos):
+
+    for assigned_number in list(dict_person_assigned_number_frames.keys()):
+        arr = dict_person_assigned_number_frames[assigned_number]
+        if len(arr) == 1:
+            if current_frame_id - arr[0] > 0:
+                del dict_person_assigned_number_frames[assigned_number]
+                if assigned_number in dict_person_crossed_the_road:
+                    del dict_person_crossed_the_road[assigned_number]
+                if assigned_number in dict_person_use_the_crosswalk:
+                    del dict_person_use_the_crosswalk[assigned_number]
+                if assigned_number in person_pos:
+                    del person_pos[assigned_number]
+                for frame_id, previous_frame in enumerate(frame_queue):
+                    for person_id, previous_person in enumerate(previous_frame.person_records):
+                        if previous_person.assigned_number == assigned_number:
+                            del frame_queue[frame_id].person_records[person_id]
+
+        elif len(arr) == 2:
+            if arr[1]-arr[0] > 1:
+
+                del dict_person_assigned_number_frames[assigned_number]
+                if assigned_number in dict_person_crossed_the_road:
+                    del dict_person_crossed_the_road[assigned_number]
+                if assigned_number in dict_person_use_the_crosswalk:
+                    del dict_person_use_the_crosswalk[assigned_number]
+                if assigned_number in person_pos:
+                    del person_pos[assigned_number]
+                for frame_id, previous_frame in enumerate(frame_queue):
+                    for person_id, previous_person in enumerate(previous_frame.person_records):
+                        if previous_person.assigned_number == assigned_number:
+                            del frame_queue[frame_id].person_records[person_id]
+
+    return frame_queue, person_pos
+
+############################################################################################
+# middle_between_points() function: Returns the midle of two (x,y) cordinates
+# @input point1 
+# @input point2 
+# @output middle (x,y) cord being the middle of two points
+###########################################################################################
+def middle_between_points(point1, point2):
+    middle = [None] * 2
+    middle[0] = (point1[0] + point2[0]) // 2 #x cord
+    middle[1] = (point1[1] + point2[1]) // 2 #y cord
+
+    return middle
+
+############################################################################################
+# check_proximity() function: Checks the proximity between 2 points within a set threshold
+# @input point1 
+# @input point2 
+# @output bool true if within proximity
+###########################################################################################
+def check_proximity(point1, point2):
+    y_thresh = 250
+    delta_y = point1[1] - point2[1]
+    if delta_y <= y_thresh or delta_y >= -y_thresh:
+        x_thresh = 500
+        delta_x = point1[0] - point2[0]
+        if delta_x <= x_thresh or delta_x >= -x_thresh:
+            return True
+    return False
+
+def did_person_cross_the_road(assigned_number, person_pos):
+    #crossing the road conditions
+    north_side = False #condition_1
+    south_side = False #condition_2
+    #values for each side of the road, change these for new images
+
+    #get crosswalk coords
+    crosswalk_coords = get_crosswalk_coordinates()
+    center_top = middle_between_points(crosswalk_coords[0], crosswalk_coords[1])
+    center_bottom = middle_between_points(crosswalk_coords[2], crosswalk_coords[3])
+
+    arr = []
+    if assigned_number in person_pos:
+        current_person_pos = person_pos[assigned_number]
+        for cords in current_person_pos:
+            #print(cords)
+            if (north_road_slope*cords[0])+cords[1]-north_ycoord < 0: # use middle of road
+                north_side = True
+            if (south_road_slope*cords[0])+cords[1]-south_ycoord > 0:
+                south_side = True
+            if (north_road_slope*cords[0])+cords[1]-north_ycoord > 0 and (south_road_slope*cords[0])+cords[1]-south_ycoord < 0: #use middle of sidewalk
+                arr.append(cords)
+    if len(arr) > 1:
+        distance_covered = float(Point(arr[0]).distance(Point(arr[-1])))
+        total_distance = float(Point(center_top).distance(Point(center_bottom)))
+        pct = distance_covered/ total_distance
+        if (north_side and south_side) or (north_side and pct>0.8) or (south_side and pct>0.8):
+            return True
+    return False
+
+############################################################################################
+# angle_between_crosswalk_and_trajectory() function: Calculates the angle of the crosswalk
+#   and the tracjetory of the person
+# @input person_pos Dictionary to hold coordinates of people
+# @output the angle
+###########################################################################################
+def angle_between_crosswalk_and_trajectory(person_pos):
+    import math
+    from sympy import Point, Line, pi
+
+    #get crosswalk coords
+    crosswalk_coords = get_crosswalk_coordinates()
+    #get center of top of crosswalk
+    center_top = middle_between_points(crosswalk_coords[0], crosswalk_coords[1])
+    #get center of bottom
+    center_bottom = middle_between_points(crosswalk_coords[2], crosswalk_coords[3])
+
+    ne=sympy.Line(center_top,center_bottom)
+    arr=[]
+    angle=[]
+    for cords in person_pos:
+        if (north_road_slope*cords[0])+cords[1]-north_ycoord > 0 and (south_road_slope*cords[0])+cords[1]-south_ycoord < 0:
+            arr.append(cords)
+    for pair_id, val in enumerate(arr):
+        if pair_id < len(arr)-1:
+            angle.append(math.degrees(sympy.Line((arr[pair_id][0],arr[pair_id][1]), (arr[pair_id+1][0],arr[pair_id+1][1])).
+                                  angle_between(ne)))
+    # print(angle)
+    return angle
+
+############################################################################################
+# did_person_use_the_crosswalk() function: checks if person used crosswalk within a certain 
+#   polygon
+# @input person_cords 
+# @input crosswalk_cords 
+# @output bool true if the person used the crosswalk
+###########################################################################################
+def did_person_use_the_crosswalk(person_cords, crosswalk_cords):
+    count=0
+    # using the crosswalk coordinates
+    crosswalk_polygon = Polygon([(524,802),(667,790),(1023,941),(758,962)])
+    #print("Pratool person cords",person_cords)
+    for cords in person_cords:
+        if crosswalk_polygon.contains(Point(cords)):
+            count+=1
+    if count>3:
+        return True
+    return False
+
+############################################################################################
+# color_the_person_box() function: Color the person box based on trajectory
+# @input img_original The original image being processed (image)
+# @input assigned_number The person's assigned number (int)
+# @input person_pos Dictionary to hold coordinates of people
+# @input person_cords Unused (x,y pair)
+# @input crosswalk_cords Coordinates of the crosswalk
+# @input val bounding box of person (x min,max y min, max)
+# @input dict_person_crossed_the_road  Dictionary to check if the person has crossed the 
+#   roads or not, person is key
+# @input dict_person_use_the_crosswalk Dictionary to check if the person has crossed the 
+#   crosswalk or not, person is key
+# @output img_original
+# @output dict_person_crossed_the_road  Dictionary to check if the person has crossed the 
+#   roads or not, person is key
+# @output dict_person_use_the_crosswalk Dictionary to check if the person has crossed the 
+#   crosswalk or not, person is key
+###########################################################################################
+def color_the_person_box(img_original, assigned_number, person_pos, person_cords, crosswalk_cords, 
+                         val,dict_person_crossed_the_road, dict_person_use_the_crosswalk):
+    if did_person_cross_the_road(assigned_number, person_pos):
+        #angle = angle_between_crosswalk_and_trajectory(person_pos[assigned_number])
+        if assigned_number not in dict_person_crossed_the_road:
+            dict_person_crossed_the_road[assigned_number] = True
+           
+        if did_person_use_the_crosswalk(person_cords, crosswalk_cords):# and any(x<25 or x>155 for x in angle):
+            if assigned_number not in dict_person_use_the_crosswalk:
+                dict_person_use_the_crosswalk[assigned_number] = True
+              
+            cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(0,255,0),5)#green 
+        else:
+            cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(0,0,255),5)#red
+    else:
+        cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(255,255,255),3)#white
+        
+    return img_original, dict_person_crossed_the_road, dict_person_use_the_crosswalk
+
+
+#For standalone use: All functionality of pedestrian detection script should remain intact,
+# even when the script is done being modified to work in real time
+def main(interval = -1, date = None, plot = False, initial=True):
+
+    image_list=[] # Array the hold the new images created from this script
+    date_arr=[]
+    new_file_path = ""
+
+    # Made everything global because it needs to be imported in plot_object_detection so we can keep data across hours/whole day
+    global dict_person_assigned_number_frames, dict_person_crossed_the_road, dict_person_use_the_crosswalk, dict_frame_time_stamp
+    global count
+    global second_count
+    global person_id
+    global total_person_count
+    global frame_id
+    global frame_counter
+    global frame_queue
+    global person_pos
+    global max_person_count
+
+    if initial:
+        count = 0
+        second_count = 0
+        person_id=1
+        total_person_count=0
+        frame_id=0
+        frame_counter = 0
+        frame_queue = deque([],6)              # Keeps track of previous 6 frames - used for re-id
+        person_pos = dict()                    # Dictionary to hold coordinates of people
+        dict_person_crossed_the_road = dict()  # Dictionary to check if the person has crossed the roads or not, person is key
+        dict_person_use_the_crosswalk = dict() # Dictionary to check if the person has crossed the crosswalk or not, person is key
+        dict_person_assigned_number_frames = dict() 
+        dict_frame_time_stamp = dict()
+        max_person_count=0
+
+    
+    size = (0,0)    # Used in creating a .mp4 video at the end of the script
+
+    frame_record = recordtype("frame_record", "frame_id person_records")
+    person_record = recordtype("person_record", "person_id frame_id feature assigned_number center_cords bottom_cords")
+    pts = get_highlightable_coordinates()# Uses exact crosswalk coordinates as a highlighter for visual aid
+
+    hour_min = 13   #default hour range
+    hour_max = 22
+
+    # Allows user to run the script through command line arguments (.xml files must exist)
+    if len(sys.argv) < 2 and interval == -1:
+        print("\n \nFormat: python pedestrian_detection.py [hour_min] [hour_max] [date1, date2, ...]")
+        print("Where hour_min / hour_max = the hour range, dateN = yyyy/mm/dd ")
+        print("If times are not found, will run hours between 13 and 22.")
+        return
