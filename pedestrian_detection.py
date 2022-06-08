@@ -44,6 +44,9 @@ north_ycoord = 830
 south_road_slope = 0.0882352941176
 south_ycoord = 1025
 
+#path to image folder
+Image_Base_Path = os.path.join(os.getcwd(),"Images")
+
 # CONTAINS MODEL - IF WANTING TO CHANGE MODELS CHANGE THE "model_name" variable
 extractor = FeatureExtractor(model_name='osnet_x1_0', model_path='./model.pth.tar',device='cuda')
 
@@ -568,3 +571,191 @@ def main(interval = -1, date = None, plot = False, initial=True):
         print("Where hour_min / hour_max = the hour range, dateN = yyyy/mm/dd ")
         print("If times are not found, will run hours between 13 and 22.")
         return
+
+    try:
+        if interval != 1 and date != None: #called from obj detection
+            hour_min = interval            #1 hour intervals
+            hour_max = interval
+            date_arr.append(date)
+        else:                               #standalone with params
+            hour_min = int(sys.argv[1])
+            hour_max = int(sys.argv[2])
+            for i in range(3, len(sys.argv)):
+                date_arr.append(sys.argv[i])
+    except:
+        for i in range(1,len(sys.argv)):    #assuming data was entered
+            date_arr.append(sys.argv[i])
+        print("No times found, running default hour range")
+
+    #Driver loop - based off the days the user as entered as a CMD line argument
+    for day in date_arr:
+
+        PATH_TO_IMAGES_DIR = pathlib.Path(Image_Base_Path + '/' + day + '/')
+        TEST_RAW_IMAGE_PATHS = sorted(list(PATH_TO_IMAGES_DIR.rglob("*.jpg")))
+
+        if len(TEST_RAW_IMAGE_PATHS) < 1:
+            print("No images found.")
+            return
+        
+        # Nested loop - checks each .jpg image in the image directory
+        for im in TEST_RAW_IMAGE_PATHS:
+            try:
+                # Get the name of the .jpg file and strip the unneccesary mumbo jumbo
+                file_name = os.path.basename(im)
+                var_date_time = file_name[:len(file_name)-4].split(" ")
+                var_date_str, var_time_str = var_date_time[0], var_date_time[1]
+
+                var_time_object = datetime.strptime(var_time_str,"%H:%M:%S")
+                var_date_object = datetime.strptime(var_date_str,"%Y-%m-%d")
+                formatted = "{:02d}".format(var_date_object.month) + "-" + "{:02d}".format(var_date_object.day) + "-" + str(var_date_object.year)
+                file_name = file_name.replace('.jpg','')
+                # Checking for valid hours we use
+                if hour_min <= var_time_object.hour and var_time_object.hour <= hour_max:
+                    xml_file = os.path.join(os.getcwd(),"Image_label_xmls") + "/" + str(formatted) + "/" + file_name + ".xml"
+                    print(xml_file)
+                    if not os.path.isdir(os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections"): #adds crosswalk_detections directory
+                        os.makedir(os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections")
+                    if not os.path.isdir(os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections/" + var_date_str): # adds day to directory
+                        os.mkdir(os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections/" + var_date_str)
+                    if os.path.exists(xml_file):
+                        frame_id+=1
+                        frame_rec = frame_record(0,0)
+                        frame_rec.frame_id = frame_id
+                        current_frame_persons = []
+
+                        person_coordinates = parse_xml(xml_file)                                        # get the coordinates for a person in the picture
+                        person_coordinates = non_max_suppression_fast(np.array(person_coordinates),0.3) # Supress Extra boxes around objects
+
+                        # Check to see if a person is actually in the image
+                        if len(person_coordinates)>0:
+
+                            count = 0
+                            second_count = 0
+
+                            img_original = cv2.imread(str(im))  # img_original now holds the image
+                            img_c = img_original.copy()         # a copy of the original
+                            temp_arr = []
+
+                            for person in person_coordinates:
+                                frame_counter += 1
+                                #THIS IF MAY NOT BE NECCESSARY IN THE NANO (if its not delete conditional and unindent content)
+                                if person[3] < 1700 and abs((person[1]-person[3]) * (person[0]-person[2])) > 1750: # check to see if below 1700 y line, bounding box size > 1750
+
+                                    if frame_id not in dict_frame_time_stamp:
+                                        dict_frame_time_stamp[frame_id] = var_date_time
+
+                                    print("Person: ", person , " - end person print")
+                                    img = img_original[person[1]:person[3], person[0]:person[2]]
+
+                                    person_rec = person_record(0,-1,0,0,0,0)
+                                    person_rec.person_id = person_id
+                                    person_rec.frame_id = frame_rec.frame_id
+
+                                    person_rec.center_cords = [int(np.average([person[0],person[2]])), person[3]] # finds the center of the bounding box
+                                    print("center cords: ", person_rec.center_cords)
+                                    person_rec.feature = extractor(img)
+
+                                    current_frame_persons.append(person_rec)
+
+                                    temp_arr.append([person_id, person[0], person[1], person[2], person[3]])
+
+                                    person_id+=1
+                                else:
+                                    if len(frame_queue) > 0 and frame_counter % 5 == 0 and frame_counter != 0:
+                                        frame_queue.popleft()
+                                        frame_counter = 0
+
+                            assign_numbers_to_person(frame_queue, current_frame_persons, total_person_count)
+
+                            person_pos = update_person_position_and_frame(current_frame_persons, person_pos, frame_rec.frame_id)
+
+                            frame_queue, person_pos = update_person_frame(frame_id, frame_queue, person_pos)
+                            total_person_count = get_total_person_count(current_frame_persons)
+
+                            for curr_person in current_frame_persons:
+
+                                person_cross_the_road = did_person_cross_the_road(curr_person.assigned_number, person_pos)
+
+                                if person_cross_the_road:
+                                    print(curr_person.assigned_number, did_person_use_the_crosswalk(person_pos[curr_person.assigned_number], pts))
+
+                            # fills the crosswalk GREEN
+                            cv2.fillPoly(img_original, pts = [pts], color=(0,255,0))
+                            # draw lines that people will be checked for crossing - RED
+                            cv2.line(img_original,(0,830),(2560,735),(0,0,255),8)
+                            cv2.line(img_original,(0,1025),(2550,800),(0,0,255),8)
+                            # give transparency to the crosswalk and road lines
+                            img_new = cv2.addWeighted(img_c, 0.3, img_original, 1 - 0.3, 0)
+
+                            frame_rec.person_records = current_frame_persons
+                            frame_queue.append(frame_rec)
+
+                            for val in temp_arr:
+                                for p_id, p_val in enumerate(current_frame_persons):
+                                    if current_frame_persons[p_id].person_id == val[0]:
+                                        img_new, dict_person_crossed_the_road, dict_person_use_the_crosswalk = color_the_person_box(img_new,
+                                        current_frame_persons[p_id].assigned_number,
+                                        person_pos,
+                                        person_pos[current_frame_persons[p_id].assigned_number],
+                                        pts,
+                                        val,
+                                        dict_person_crossed_the_road,
+                                        dict_person_use_the_crosswalk)
+                            
+                            # Writing onto the image original person count, person used road or crosswalk stated - NOT weighted
+                            cv2.putText(img_new, "Person count = "+ str(total_person_count), (
+                                                50, 120), cv2.FONT_HERSHEY_SIMPLEX, 3, (0,255,239), 6)
+                            cv2.putText(img_new, "Person crossed road = "+ str(len(dict_person_crossed_the_road)), (
+                                                50, 260), cv2.FONT_HERSHEY_SIMPLEX, 3, (0,255,239), 6)  
+                            cv2.putText(img_new, "Person used crosswalk = "+ str(len(dict_person_use_the_crosswalk)), (
+                                                50, 400), cv2.FONT_HERSHEY_SIMPLEX, 3, (0,255,239), 6)
+
+                            # used for video writer
+                            height, width, layers = img_new.shape
+                            size = (width,height)
+                            image_list.append(img_new)
+                            new_file_path = file_name
+                            
+                            # Saves file with writing to the path - ALL .JPGS NOW STORED IN CROSSWALK DETECTIONS
+                            cv2.imwrite(os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections/" + var_date_str + "/" + file_name + ".jpg",img_new)
+
+                        else:
+                            second_count += 1
+                            max_second_count = 5
+                            frame_queue, person_pos = update_person_frame(frame_id, frame_queue, person_pos)
+                            if len(frame_queue) > 0 and second_count > max_second_count: # wait at least 5 seconds before popping
+                                frame_queue.popleft() #should remove old data from queue over large time gaps
+
+            except Exception as e:
+                print("Exception thrown:", str(e))
+                continue
+
+    """
+    # Create .csv files - used for tracing trajectories or other analytical jobs
+    # create file with people and their coordinates
+    import csv
+    a_file = open("/raid/AoT/image_label_xmls/crosswalk_detections/" + var_date_str + "/person_cords.csv", "w+")
+    writer = csv.writer(a_file)
+    for key, value in person_pos.items():
+        road = True if key in dict_person_crossed_the_road else False       #set road and crosswalk flags in the cords csv file
+        crosswalk = True if key in dict_person_use_the_crosswalk else False
+        writer.writerow([key, value, road, crosswalk])
+    a_file.close()
+    # Save assigned number of frames per person
+    b_file = open("/raid/AoT/image_label_xmls/crosswalk_detections/" + var_date_str + "/person_frames.csv", "w+")
+    writer = csv.writer(b_file)
+    for key, value in dict_person_assigned_number_frames.items():
+        writer.writerow([key, value])
+    b_file.close()
+    # Save frame timestamps
+    c_file = open("/raid/AoT/image_label_xmls/crosswalk_detections/" + var_date_str + "/frame_timestamps.csv", "w+")
+    writer = csv.writer(c_file)
+    for key, value in dict_frame_time_stamp.items():
+        writer.writerow([key, value])
+    c_file.close()
+    """
+
+    #DATABASE PORTION BELOW
+
+                                    
+
