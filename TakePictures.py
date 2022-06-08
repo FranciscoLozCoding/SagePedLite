@@ -1,6 +1,10 @@
 import os
 import cv2 #video streaming
 from datetime import datetime
+import time
+
+#Time variable
+seconds_between_frames = 1.0 #seconds between the frames captured to jpg
 
 #Camera Variables
 camIP = '10.42.0.104'
@@ -38,7 +42,8 @@ while True:
     #path to the image taken
     Image_Path = os.path.join(Image_Base_Path,year,month,day)
     
-    img_name="{}.png".format(img_dateTime)
+    #Create image
+    img_name="{}.jpg".format(img_dateTime)
     img_path=os.path.join(Image_Path,img_name)
     cv2.imwrite(img_path, frame)
 
@@ -48,6 +53,8 @@ while True:
         # ESC pressed
         print("Escape hit, closing...")
         break
+
+    time.sleep(seconds_between_frames)
 
 #closes camera
 cam.release()
