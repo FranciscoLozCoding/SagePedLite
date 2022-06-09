@@ -134,13 +134,21 @@ if not os.path.isdir(xml_output_dir):
     os.mkdir(xml_output_dir)
 
 from subprocess import Popen
+import pedestrian_detection
 
-######################################################
-#
-# INSERT THE REST OF THE CODE: 
-#   when pedestrian_detection is working
-#
-#################################################################
+count = 0
+
+# For running pedestrian_detection.py
+for image_path in IMAGE_PATHS: # add the .xml files into the correct directories
+    xmp_path = xml_output_dir + os.path.basename(str(image_path)).replace("jpg","xml")
+    file_hour, file_date, processed = write_label_xmls(image_path)
+    if file_hour != last_hour and file_hour >= 13 and processed: #hour has changed
+        pedestrian_detection.main(last_hour,file_date, False, count==0)
+        last_hour = file_hour
+        count += 1
+
+#Runs pedestrian_detection.py with "plot" set to true so it runs plot_lines.py
+pedestrian_detection.main(last_hour,file_date, True, False)
 
 
             
