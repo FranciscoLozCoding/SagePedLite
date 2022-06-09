@@ -39,7 +39,7 @@ def draw_lines(date):
     db_connection = sqlite3.connect(db_path)
     db_cursor = db_connection.cursor()
     master_date = master_date_object + '%'
-    db_cursor.execute("SELECT PERMAID, XCOORD, YCOORD, FROM Coordinate WHERE DATE LIKE ?;", (master_date,))
+    db_cursor.execute("SELECT PERMAID, XCOORD, YCOORD FROM Coordinate WHERE DATE LIKE ?;", (master_date,))
     record = db_cursor.fetchall() # [0] = perma id, [1] = xcoord, [2] = ycoord
 
     if len(record) < 1: # if record is empty
@@ -53,7 +53,7 @@ def draw_lines(date):
     for i in range(13,23):
         date_hour = master_date_object + ' ' + str(i) + '%'
         print("Date: ", date_hour)
-        db_cursor.execute("SELECT PERMAID, XCOORD, YCOORD, FROM Coordinate WHERE DATE LIKE ?;", (date_hour,))
+        db_cursor.execute("SELECT PERMAID, XCOORD, YCOORD FROM Coordinate WHERE DATE LIKE ?;", (date_hour,))
         rec = db_cursor.fetchall() # [0] = perma id, [1] = xcoord, [2] = ycoord
         image_copy = image.copy() #create a copy for the specific hour
         print("Length: ", len(rec))
