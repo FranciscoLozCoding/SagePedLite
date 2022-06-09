@@ -731,6 +731,8 @@ def main(interval = -1, date = None, plot = False, initial=True):
                 continue
 
     """
+    STILL NEEDS TO BE UPDATED TO FIT WITH JETSON NANO
+
     # Create .csv files - used for tracing trajectories or other analytical jobs
     # create file with people and their coordinates
     import csv
@@ -757,5 +759,79 @@ def main(interval = -1, date = None, plot = False, initial=True):
 
     #DATABASE PORTION BELOW
 
-                                    
+    if plot:
+
+        import sqlite3
+
+        '''
+        INSERT CODE HERE TO CREATE DATABASE WITH TABLES IF THE DB FILE IS NOT FOUND
+        '''
+
+        #Create connection to database
+        db_path = os.path.join(os.getcwd(),"pedestrian_detections.db")
+        db_connection = sqlite3.connect(db_path)
+        db_cursor = db_connection.cursor()
+        #Check if current date exists within the database
+        most_recent_date = db_cursor.execute("SELECT DATE FROM Frame ORDER BY DATE DESC LIMIT 1;")
+        date = str(most_recent_date.fetchone())
+        
+        if(date == new_file_path):
+            print("Yes, the date matched in the database")
+            return                                          #return if date already exists ( for now )
+        
+        latest_id = 0
+        largest_id = db_cursor.execute("SELECT PERMAID FROM Person ORDER BY PERMAID DESC LIMIT 1;")
+        new_id = largest_id.fetchone() #fetch the latest id if it exists for later use
+        if new_id is not None:
+            latest_id = new_id[0]
+            print("Latest ID ", latest_id)
+        else:
+            print("Database empty")     #temporary
+
+        #insert values into person
+        for key, value in person_pos.items():
+            road = True if key in dict_person_crossed_the_road else False   #set road and crosswalk flags in the cords.csv file
+            crosswalk = True if key in dict_person_use_the_crosswalk else False
+            in_database_road = 1 if road else 0
+            in_database_crosswalk = 1 if crosswalk else 0
+            db_cursor.execute("INSERT INTO Person (DAYID, USECROSSWALK, USEROAD) VALUES (?,?,?)", (key, in_database_crosswalk, in_database_road))
+        
+        #insert values into Frame
+        for key, value in dict_frame_time_stamp.items():
+            new_date = value[0] + " " + value[1]
+            path = os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections/" + var_date_str + "/" + new_date + ".jpg"
+            db_cursor.execute("INSERT INTO Frame (DATE, PATH, FRAMEID) VALUES (?,?,?)",(str(new_date), str(path), int(key)))
+
+        #insert values into Coordinate and Contains tables
+        for key, frame_id_array in dict_person_assigned_number_frames.items():
+            for i in range(1, len(frame_id_array)): #frame_id in frame_id_array: loop through each frame
+                frame_id = frame_id_array[i]        #use indicies to skip frist frame in dictionary. CSV File has extra frame at start, but person_cords csv has # of frames - 1
+                coord = person_pos[key][i-1]        #get the coordinates of the current frame in array
+                timestamp = (' '.join(dict_frame_time_stamp[frame_id])) #get timestamp using current frame id
+                print("Key ", key)
+                print("Coord[0] ",coord[0])
+                print("Coord[1]", coord[1])
+                db_cursor.execute("INSERT INTO Coordinate (PERMAID, DATE, XCOORD, YCOORD) VALUES (?,?,?)",
+                    (int(latest_id+key), timestamp, int(coord[0]), int(coord[1]) ))
+                db_cursor.execute("INSERT INTO Contains (PERMAID, DATE) VALUES (?,?)", (int(latest_id+key), timestamp) )
+
+        #commit changes to database
+        db_connection.commit()
+        #close connection to database
+        db_connection.close()
+
+        # Print still image of hourly crosswalk trajectories
+        print("Tracing trajectories...")
+        from plot_lines import draw_lines
+        draw_lines(var_date_str)
+
+        #create video of day/hour
+        out = cv2.VideoWriter(os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections/" + var_date_str + "/crosswalk_detection.mp4",
+            cv2.VideoWriter_fourcc(*'mp4v'),15,size)
+        for i in range(len(image_list)):
+            out.write(image_list[i])
+        out.release()
+
+if __name__ == '__main__':
+    main()
 
