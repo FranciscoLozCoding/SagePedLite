@@ -140,7 +140,7 @@ count = 0
 
 # For running pedestrian_detection.py
 for image_path in IMAGE_PATHS: # add the .xml files into the correct directories
-    xmp_path = xml_output_dir + os.path.basename(str(image_path)).replace("jpg","xml")
+    xml_path = xml_output_dir + os.path.basename(str(image_path)).replace("jpg","xml")
     file_hour, file_date, processed = write_label_xmls(image_path)
     if file_hour != last_hour and file_hour >= 13 and processed: #hour has changed
         pedestrian_detection.main(last_hour,file_date, False, count==0)
@@ -149,7 +149,4 @@ for image_path in IMAGE_PATHS: # add the .xml files into the correct directories
 
 #Runs pedestrian_detection.py with "plot" set to true so it runs plot_lines.py
 pedestrian_detection.main(last_hour,file_date, True, False)
-
-
-            
 
