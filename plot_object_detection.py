@@ -56,7 +56,10 @@ for filename in os.listdir(temp_image_dir): # raw image directory
 ###########################################################################################
 def detect_fn(image):
 
-    detections = net.Detect(image) #run image through model
+    # load an image (into shared CPU/GPU memory)
+    cuda_img = jetson.utils.loadImage(image)
+
+    detections = net.Detect(cuda_img) #run image through model
 
     return detections
 
@@ -92,6 +95,7 @@ def write_label_xmls(image_path):
     file_name = os.path.basename(image_path)
     var_date_time = file_name[:len(file_name)-4].split(" ")
     var_date_str, var_time_str = var_date_time[0], var_date_time[1]
+    var_time_str = var_time_str.split(".", 1)[0] # remove the miliseconds in the file name
     var_time_object = datetime.strptime(var_time_str,"%H:%M:%S")
     var_date_object = datetime.strptime(var_date_str,"%Y-%m-%d")
 
@@ -104,17 +108,18 @@ def write_label_xmls(image_path):
     if var_date_object.day > 0 and var_date_object.month >= 0 and 13 <= var_time_object.hour <= 22: # change this 13 to run more than 1 hour
         image_np = np.array(Image.open(image_path))
         # actual detection
-        output_dict = detect_fn(Image.open(image_path))
+        output_dict = detect_fn(image_path)
         im_width, im_height = image_np.shape[1], image_np.shape[0]
+
+        writer = Writer(image_path, im_width, im_height)
 
         for data in output_dict:
             ClassId = data.ClassID
-            left = data.Left * im_width
-            right = data.Right * im_width
-            top = data.Top * im_height
-            bottom = data.Bottom * im_height
-            score = data.Confidence
-            writer = Writer(image_path, im_width, im_height)
+            left = data.Left # * im_width
+            right = data.Right # * im_width
+            top = data.Top # * im_height
+            bottom = data.Bottom # * im_height
+            score = data.Confidence           
 
             if score >= .5: # .5 Threshold for accuracy on xml objects
                 name = net.GetClassDesc(ClassId)
@@ -147,6 +152,6 @@ for image_path in IMAGE_PATHS: # add the .xml files into the correct directories
         last_hour = file_hour
         count += 1
 
-#Runs pedestrian_detection.py with "plot" set to true so it runs plot_lines.py
+# Runs pedestrian_detection.py with "plot" set to true so it runs plot_lines.py
 pedestrian_detection.main(last_hour,file_date, True, False)
 
