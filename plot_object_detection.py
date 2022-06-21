@@ -32,10 +32,12 @@ if len(sys.argv) == 2: # has an input date
     new_dir = sys.argv[1]
     new_dir = new_dir.split("/")
     output_dir_date = new_dir[1] + "-" + new_dir[2] + "-" + new_dir[0] + "/" #reformatting to output format "mm-dd-yyyy"
+
 now = datetime.now()
 month = "%02d" % (now.month)
 day = "%02d" % (now.day)
 year = "%04d" % (now.year)
+
 if len(sys.argv) == 1: # default to current date
     current_date = year + "/" + month + "/" + day + "/"
     output_dir_date =  month + "-" + day + "-" + year + "/"  #reformatting to output format "mm-dd-yyyy"
@@ -105,7 +107,7 @@ def write_label_xmls(image_path):
 
 
     # specify the hours of the day you wish to run
-    if var_date_object.day > 0 and var_date_object.month >= 0 and 13 <= var_time_object.hour <= 22: # change this 13 to run more than 1 hour
+    if var_date_object.day > 0 and var_date_object.month >= 0 and 1 <= var_time_object.hour <= 24:
         image_np = np.array(Image.open(image_path))
         # actual detection
         output_dict = detect_fn(image_path)
