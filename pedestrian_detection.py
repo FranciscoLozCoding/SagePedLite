@@ -29,7 +29,7 @@ person_id=1
 total_person_count=0
 frame_id=0
 frame_counter=0
-frame_queue=deque([],5) # keeps track of previos 5 frames - useful for re-id
+frame_queue=deque([],2) # keeps track of previos 5 frames - useful for re-id # changed it to 2 frames for edge device
 person_pos = dict()
 dict_person_crossed_the_road = dict()
 dict_person_use_the_crosswalk = dict()
@@ -48,7 +48,8 @@ south_ycoord = 1025
 Image_Base_Path = os.path.join(os.getcwd(),"Images")
 
 # CONTAINS MODEL - IF WANTING TO CHANGE MODELS CHANGE THE "model_name" variable
-extractor = FeatureExtractor(model_name='osnet_x1_0', model_path='./model.pth.tar',device='cuda')
+# original - osnet_x1_0
+extractor = FeatureExtractor(model_name='osnet_x0_5',model_path="./osnet_x0_5_imagenet.pth",device='cuda')
 
 ############################################################################################
 # get_crosswalk_coordinates() function: Gets the crosswalk coordinates 
@@ -73,7 +74,7 @@ def get_highlightable_coordinates():
     return np.array(coordinates)
 
 ############################################################################################
-# parse_xml() function: parse the xml file
+# parse_xml() function: parse the xml file to get person cords
 # @input xml_file the xml file to be parsed
 # @output array containing person objects in the xml file
 ###########################################################################################
@@ -282,7 +283,7 @@ def update_previous_frame(frame_queue, current_frame_persons):
 ###########################################################################################
 def assign_numbers_to_person(frame_queue, current_frame_persons, total_person_count):
 
-    cos = torch.cosine_similarity(dim=1,eps=1e-6)
+    cos = torch.nn.CosineSimilarity(dim=1,eps=1e-6)
 
     if not any(frame_queue):
 
@@ -298,7 +299,7 @@ def assign_numbers_to_person(frame_queue, current_frame_persons, total_person_co
             sim_score = defaultdict(list)
             for previous_frame in frame_queue:
                 for previous_person in previous_frame.person_records:
-                    similarity_score = cos(current_person.feature,previous_person.feature).data.cpu().numpy() # or .cpu().numpy()
+                    similarity_score = cos(current_person.feature,previous_person.feature).data.cpu().numpy()
                     sim_score[previous_person.assigned_number].append(similarity_score) # assigns a sim score to the prev person's assigned number
             for assigned_number in sim_score:
                 sim_score[assigned_number] = np.mean(sim_score[assigned_number])
@@ -511,11 +512,11 @@ def color_the_person_box(img_original, assigned_number, person_pos, person_cords
             if assigned_number not in dict_person_use_the_crosswalk:
                 dict_person_use_the_crosswalk[assigned_number] = True
               
-            cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(0,255,0),5)#green 
+            cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(0,255,0),4)#green 
         else:
-            cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(0,0,255),5)#red
+            cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(0,0,255),4)#red
     else:
-        cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(255,255,255),3)#white
+        cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(255,255,255),2)#white
         
     return img_original, dict_person_crossed_the_road, dict_person_use_the_crosswalk
 
@@ -604,6 +605,7 @@ def main(interval = -1, date = None, plot = False, initial=True):
                 file_name = os.path.basename(im)
                 var_date_time = file_name[:len(file_name)-4].split(" ")
                 var_date_str, var_time_str = var_date_time[0], var_date_time[1]
+                var_time_str = var_time_str.split(".", 1)[0] # remove the miliseconds in the file name
 
                 var_time_object = datetime.strptime(var_time_str,"%H:%M:%S")
                 var_date_object = datetime.strptime(var_date_str,"%Y-%m-%d")
@@ -614,7 +616,7 @@ def main(interval = -1, date = None, plot = False, initial=True):
                     xml_file = os.path.join(os.getcwd(),"Image_label_xmls") + "/" + str(formatted) + "/" + file_name + ".xml"
                     print(xml_file)
                     if not os.path.isdir(os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections"): #adds crosswalk_detections directory
-                        os.makedir(os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections")
+                        os.mkdir(os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections")
                     if not os.path.isdir(os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections/" + var_date_str): # adds day to directory
                         os.mkdir(os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections/" + var_date_str)
                     if os.path.exists(xml_file):
@@ -639,7 +641,7 @@ def main(interval = -1, date = None, plot = False, initial=True):
                             for person in person_coordinates:
                                 frame_counter += 1
                                 #THIS IF MAY NOT BE NECCESSARY IN THE NANO (if its not delete conditional and unindent content)
-                                if person[3] < 1700 and abs((person[1]-person[3]) * (person[0]-person[2])) > 1750: # check to see if below 1700 y line, bounding box size > 1750
+                                if True:#person[3] < 1700 and abs((person[1]-person[3]) * (person[0]-person[2])) > 1750: # check to see if below 1700 y line, bounding box size > 1750
 
                                     if frame_id not in dict_frame_time_stamp:
                                         dict_frame_time_stamp[frame_id] = var_date_time
@@ -653,8 +655,9 @@ def main(interval = -1, date = None, plot = False, initial=True):
 
                                     person_rec.center_cords = [int(np.average([person[0],person[2]])), person[3]] # finds the center of the bounding box
                                     print("center cords: ", person_rec.center_cords)
+                            
                                     person_rec.feature = extractor(img)
-
+                            
                                     current_frame_persons.append(person_rec)
 
                                     temp_arr.append([person_id, person[0], person[1], person[2], person[3]])
@@ -666,7 +669,7 @@ def main(interval = -1, date = None, plot = False, initial=True):
                                         frame_counter = 0
 
                             assign_numbers_to_person(frame_queue, current_frame_persons, total_person_count)
-
+                        
                             person_pos = update_person_position_and_frame(current_frame_persons, person_pos, frame_rec.frame_id)
 
                             frame_queue, person_pos = update_person_frame(frame_id, frame_queue, person_pos)
@@ -704,11 +707,11 @@ def main(interval = -1, date = None, plot = False, initial=True):
                             
                             # Writing onto the image original person count, person used road or crosswalk stated - NOT weighted
                             cv2.putText(img_new, "Person count = "+ str(total_person_count), (
-                                                50, 120), cv2.FONT_HERSHEY_SIMPLEX, 3, (0,255,239), 6)
-                            cv2.putText(img_new, "Person crossed road = "+ str(len(dict_person_crossed_the_road)), (
-                                                50, 260), cv2.FONT_HERSHEY_SIMPLEX, 3, (0,255,239), 6)  
-                            cv2.putText(img_new, "Person used crosswalk = "+ str(len(dict_person_use_the_crosswalk)), (
-                                                50, 400), cv2.FONT_HERSHEY_SIMPLEX, 3, (0,255,239), 6)
+                                                0,15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,239), 1)
+                            # cv2.putText(img_new, "Person crossed road = "+ str(len(dict_person_crossed_the_road)), (
+                            #                     0,35), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,239), 1)  
+                            # cv2.putText(img_new, "Person used crosswalk = "+ str(len(dict_person_use_the_crosswalk)), (
+                            #                     0,55), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,239), 1)
 
                             # used for video writer
                             height, width, layers = img_new.shape
@@ -723,9 +726,10 @@ def main(interval = -1, date = None, plot = False, initial=True):
                             second_count += 1
                             max_second_count = 5
                             frame_queue, person_pos = update_person_frame(frame_id, frame_queue, person_pos)
+                        
                             if len(frame_queue) > 0 and second_count > max_second_count: # wait at least 5 seconds before popping
                                 frame_queue.popleft() #should remove old data from queue over large time gaps
-
+                        
             except Exception as e:
                 print("Exception thrown:", str(e))
                 continue
