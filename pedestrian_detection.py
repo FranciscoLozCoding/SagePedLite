@@ -563,14 +563,14 @@ def main(interval = -1, date = None, plot = False, initial=True):
     person_record = recordtype("person_record", "person_id frame_id feature assigned_number center_cords bottom_cords")
     pts = get_highlightable_coordinates()# Uses exact crosswalk coordinates as a highlighter for visual aid
 
-    hour_min = 13   #default hour range
-    hour_max = 22
+    hour_min = 1   #default hour range
+    hour_max = 24
 
     # Allows user to run the script through command line arguments (.xml files must exist)
     if len(sys.argv) < 2 and interval == -1:
         print("\n \nFormat: python pedestrian_detection.py [hour_min] [hour_max] [date1, date2, ...]")
         print("Where hour_min / hour_max = the hour range, dateN = yyyy/mm/dd ")
-        print("If times are not found, will run hours between 13 and 22.")
+        print("If times are not found, will run hours between 1 and 24.")
         return
 
     try:
@@ -815,7 +815,7 @@ def main(interval = -1, date = None, plot = False, initial=True):
                 print("Key ", key)
                 print("Coord[0] ",coord[0])
                 print("Coord[1]", coord[1])
-                db_cursor.execute("INSERT INTO Coordinate (PERMAID, DATE, XCOORD, YCOORD) VALUES (?,?,?)",
+                db_cursor.execute("INSERT INTO Coordinate (PERMAID, DATE, XCOORD, YCOORD) VALUES (?,?,?,?)",
                     (int(latest_id+key), timestamp, int(coord[0]), int(coord[1]) ))
                 db_cursor.execute("INSERT INTO Contains (PERMAID, DATE) VALUES (?,?)", (int(latest_id+key), timestamp) )
 
