@@ -1,6 +1,6 @@
 from cv2 import sqrt
 import jetson.utils
-from TrackPerson import Person
+from Image_label_xmls.archive.TrackPerson import Person
 import numpy as np
 import time
 import math
@@ -39,7 +39,7 @@ jetson.utils.cudaDeviceSynchronize()
 font = jetson.utils.cudaFont( size=20 )
 
 # initialize centroid tracker
-from centroidtracker import CentroidTracker
+from Image_label_xmls.archive.centroidtracker import CentroidTracker
 ct = CentroidTracker()
 trackableObjects = {}
 
