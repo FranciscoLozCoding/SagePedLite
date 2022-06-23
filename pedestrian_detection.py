@@ -512,9 +512,9 @@ def color_the_person_box(img_original, assigned_number, person_pos, person_cords
             if assigned_number not in dict_person_use_the_crosswalk:
                 dict_person_use_the_crosswalk[assigned_number] = True
               
-            cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(0,255,0),4)#green 
+            cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(0,255,0),2)#green 
         else:
-            cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(0,0,255),4)#red
+            cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(0,0,255),2)#red
     else:
         cv2.rectangle(img_original,(val[1],val[2]),(val[3],val[4]),(255,255,255),2)#white
         
