@@ -120,7 +120,7 @@ def draw_lines(date):
 
     #write the image for the whole day
     cv2.putText(master_copy, "Towards Camera", (10,25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255),2)
-    cv2.putText(master_copy, "Away from Camera", (10,25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0),2)
+    cv2.putText(master_copy, "Away from Camera", (10,55), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0),2)
     cv2.imwrite(os.path.join(os.getcwd(),"Image_label_xmls") + "/" + "crosswalk_detections/" + date + '/line_result_M' + '.jpg', master_copy)
 
     db_connection.close()   #close db
@@ -128,4 +128,4 @@ def draw_lines(date):
 
 # for using the script without pedestrian_detection.py, for testing
 if __name__ == '__main__':
-    draw_lines("2022-06-21")
+    draw_lines("2022-06-24")
