@@ -7,6 +7,8 @@ import time
 import sqlite3
 import os
 
+Env_Image = "Env1.jpg"
+
 is_away_from_cam_YLine = 420
 
 #code isn't the most efficient at the moment
@@ -22,7 +24,7 @@ def draw_lines(date):
 
     #generic image for overlaying
     #eventually take in name of file or environment number from database for different environments
-    im_path = pathlib.Path(os.path.join(os.getcwd(),"Images/env") + "/" + "Env1.jpg")
+    im_path = pathlib.Path(os.path.join(os.getcwd(),"Images/env") + "/" + Env_Image)
     image = cv2.imread(str(im_path))
     image_copy = image.copy()
     master_copy = image.copy()

@@ -734,33 +734,6 @@ def main(interval = -1, date = None, plot = False, initial=True):
                 print("Exception thrown:", str(e))
                 continue
 
-    """
-    STILL NEEDS TO BE UPDATED TO FIT WITH JETSON NANO
-
-    # Create .csv files - used for tracing trajectories or other analytical jobs
-    # create file with people and their coordinates
-    import csv
-    a_file = open("/raid/AoT/image_label_xmls/crosswalk_detections/" + var_date_str + "/person_cords.csv", "w+")
-    writer = csv.writer(a_file)
-    for key, value in person_pos.items():
-        road = True if key in dict_person_crossed_the_road else False       #set road and crosswalk flags in the cords csv file
-        crosswalk = True if key in dict_person_use_the_crosswalk else False
-        writer.writerow([key, value, road, crosswalk])
-    a_file.close()
-    # Save assigned number of frames per person
-    b_file = open("/raid/AoT/image_label_xmls/crosswalk_detections/" + var_date_str + "/person_frames.csv", "w+")
-    writer = csv.writer(b_file)
-    for key, value in dict_person_assigned_number_frames.items():
-        writer.writerow([key, value])
-    b_file.close()
-    # Save frame timestamps
-    c_file = open("/raid/AoT/image_label_xmls/crosswalk_detections/" + var_date_str + "/frame_timestamps.csv", "w+")
-    writer = csv.writer(c_file)
-    for key, value in dict_frame_time_stamp.items():
-        writer.writerow([key, value])
-    c_file.close()
-    """
-
     #DATABASE PORTION BELOW
 
     if plot:
